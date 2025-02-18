@@ -25,12 +25,29 @@ def compute_fluxes(P, dz, u, D):
     J[0] = J[-1] = 0  # No flux boundary condition
     return J
 
+def calculate_light(P_profile, z, I_0=100, k=0.1, alpha=0.03):
+    P_total = np.trapz(P_profile, z)  # Integrate P over depth for self-shading
+    return I_0 * np.exp(-k * z) * np.exp(-alpha * P_total)  # Lambert-Beer Law
+
 # Step 4: Define the Differential Equation for ODE Solver
 def dPdt(t, P, N, dz, u, D, growth_rate, loss_rate, K):
     J = compute_fluxes(P, dz, u, D)
     dP = np.zeros_like(P)
     dP[1:-1] = -(J[1:-1] - J[0:-2]) / dz  # Finite volume method
-    dP += growth_rate * P * (1 - P / K) - loss_rate * P  # Logistic growth with loss
+
+    # calculate the light:
+
+    I= calculate_light(P, z, I_0=100, k=0.1, alpha=0.03)
+    
+    #P_total = np.trapz(P, z)  # Integrate P over depth for self-shading
+    #I = I_0 * np.exp(-k * z) * np.exp(-alpha * P_total)  # Apply Lambert-Beer Law
+    #return I
+    gmax = 0.5  # Maximum growth rate (per day)
+    H = 10  # Half-saturation constant for light limitation (W/m²)
+    # calculate growth rate:
+    growth_rate = gmax*I/(I+H) 
+    # calculate derivative:
+    dP += growth_rate * P - loss_rate * P  # Logistic growth with loss
     return dP
 
 # Step 5: Solve the ODE Using solve_ivp
